@@ -1,0 +1,7 @@
+.neon
+.env.local
+.env
+.env.*
+.neon
+node_modules
+.next
