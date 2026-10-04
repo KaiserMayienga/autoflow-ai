@@ -14,6 +14,7 @@ const api = async (url: string, body?: unknown) => {
 function TicketCard({ t, children }: { t: Ticket; children?: React.ReactNode }) {
   const risk = t.risk, rc = risk === "high" ? "hi" : risk === "med" ? "md" : "lo";
   const hits = t.analysis?.hits ?? [], q = t.quote;
+  const rec = t.analysis?.recommendation, reasons: string[] = t.analysis?.reasons ?? [], passages: any[] = t.analysis?.passages ?? [];
   return (
     <div className="card">
       <h2>Ticket #{t.id}{t.vehicle ? `: ${t.vehicle}` : ""}</h2>
@@ -24,8 +25,15 @@ function TicketCard({ t, children }: { t: Ticket; children?: React.ReactNode }) 
         {q.parts.map((p: any) => <tr key={p.sku}><td>{p.name}</td><td>{money(p.totalCents)}</td></tr>)}
         <tr><td>Labour {q.hours.toFixed(1)}h</td><td>{money(q.labourCents)}</td></tr>
         <tr><td>VAT 16%</td><td>{money(q.vatCents)}</td></tr>
-        <tr><td><b>Estimated total (deterministic quote engine)</b></td><td><b>{money(q.totalCents)}</b></td></tr>
+        <tr><td><b>{q.range ? "Full-scope total (deterministic quote engine)" : "Estimated total (deterministic quote engine)"}</b></td><td><b>{money(q.totalCents)}</b></td></tr>
+        {q.range && <tr><td><b>Expected range after inspection</b></td><td><b>{money(q.range.lowCents)} to {money(q.range.highCents)}</b></td></tr>}
       </tbody></table></div>
+      {q.range && <div className="mut">{q.range.lowLabel} at the low end, {q.range.highLabel.toLowerCase()} at the high end. {q.range.note}</div>}
+      {rec?.customer_message && <p className={rec.advise_not_to_drive ? "hi" : "mut"}>{rec.customer_message}</p>}
+      {(reasons.length > 0 || passages.length > 0) && <details><summary className="mut">Why this decision?</summary>
+        {reasons.map((r, i) => <div key={i} className="mut">• {r}</div>)}
+        {passages.map((p: any) => <div key={p.id} className="mut">📖 {p.source}, section {p.section}: {p.text}</div>)}
+      </details>}
       <p><span className="tag">{t.status}</span> {t.appointment ? `Appointment: ${t.appointment}` : (t.escalate_reason ?? t.reason) ? `Escalated: ${t.escalate_reason ?? t.reason}` : ""}</p>
       {children}
     </div>
@@ -91,14 +99,23 @@ function Shell({ me, onOut }: { me: Me; onOut: () => void }) {
 function NewRequest({ onDone }: { onDone: () => void }) {
   const [vehicles, setVehicles] = useState<any[]>([]), [vid, setVid] = useState(0), [text, setText] = useState("");
   const [busy, setBusy] = useState(false), [err, setErr] = useState(""), [shown, setShown] = useState(0), [res, setRes] = useState<any>(null);
+  const [ask, setAsk] = useState<{ requestId: string; questions: { key: string; q: string; options: string[] }[] } | null>(null), [answers, setAnswers] = useState<Record<string, string>>({});
   useEffect(() => { api("/api/vehicles").then((j) => { setVehicles(j.vehicles); setVid(j.vehicles[0]?.id ?? 0); }).catch((e) => setErr(e.message)); }, []);
+  const finish = async (r: any) => {
+    if (r.needsClarification) { setAsk({ requestId: r.requestId, questions: r.questions }); setAnswers({}); return; }
+    setAsk(null);
+    for (let i = 1; i <= r.trace.length; i++) { await new Promise((z) => setTimeout(z, 300)); setShown(i); }
+    setRes(r); onDone();
+  };
   const run = async () => {
-    setBusy(true); setErr(""); setRes(null); setShown(0);
-    try {
-      const r = await api("/api/tickets", { vehicleId: vid, text });
-      for (let i = 1; i <= r.trace.length; i++) { await new Promise((z) => setTimeout(z, 300)); setShown(i); }
-      setRes(r); onDone();
-    } catch (e: any) { setErr(e.message); }
+    setBusy(true); setErr(""); setRes(null); setShown(0); setAsk(null);
+    try { await finish(await api("/api/tickets", { vehicleId: vid, text })); } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  };
+  const sendAnswers = async () => {
+    if (!ask) return;
+    setBusy(true); setErr("");
+    try { await finish(await api("/api/tickets/clarify", { requestId: ask.requestId, answers })); } catch (e: any) { setErr(e.message); setAsk(null); }
     setBusy(false);
   };
   const ex = ["Brakes squeal when stopping", "Oil change and AC not cold", "Install LED headlights and a dashcam", "Battery drains fast and charging seems slow", "Strange noise, not sure what"];
@@ -109,9 +126,15 @@ function NewRequest({ onDone }: { onDone: () => void }) {
       <div className="row" style={{ marginTop: 6 }}>{ex.map((x) => <button key={x} className="g" onClick={() => setText(x)}>{x}</button>)}</div>
       <div className="row" style={{ marginTop: 12 }}><button onClick={run} disabled={busy || !vid || text.trim().length < 5}>{busy ? "Analyzing…" : "Analyze with AutoFlow AI"}</button><span className="hi">{err}</span></div>
     </div>
-    {(busy || res) && <div className="card steps"><h2>AI orchestration pipeline</h2>
+    {ask && <div className="card"><h2>A few quick questions</h2>
+      <div className="mut">These help the technician and keep you safe. Your request is not booked until they are answered.</div>
+      {ask.questions.map((qn) => <div key={qn.key}><label>{qn.q}</label>
+        <div className="row">{qn.options.map((o) => <button key={o} className={answers[qn.key] === o ? "" : "g"} onClick={() => setAnswers({ ...answers, [qn.key]: o })}>{o}</button>)}</div></div>)}
+      <div className="row" style={{ marginTop: 12 }}><button onClick={sendAnswers} disabled={busy || ask.questions.some((qn) => !answers[qn.key])}>{busy ? "Analyzing…" : "Continue"}</button><span className="hi">{err}</span></div>
+    </div>}
+    {(busy || res) && !ask && <div className="card steps"><h2>AI orchestration pipeline</h2>
       {(res?.trace ?? Array.from({ length: 7 }, (_, i) => ({ step: i + 1, name: "…", detail: "" }))).map((s: any, i: number) => <div key={i} className={i < shown ? "on" : ""}>{s.step}. {i < shown ? `${s.name}: ${s.detail}` : s.name}</div>)}</div>}
-    {res && <TicketCard t={{ ...res, vehicle: vehicles.find((v) => v.id === vid)?.name, text, analysis: { hits: res.hits }, quote: res.quote, escalate_reason: res.reason }} />}
+    {res && <TicketCard t={{ ...res, vehicle: vehicles.find((v) => v.id === vid)?.name, text, analysis: { hits: res.hits, reasons: res.reasons, passages: res.passages, recommendation: res.recommendation }, quote: res.quote, escalate_reason: res.reason }} />}
   </>);
 }
 

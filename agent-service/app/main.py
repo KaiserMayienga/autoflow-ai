@@ -14,15 +14,25 @@ OWNERS: dict[str, str] = {}  # request_id -> customer id (move to Postgres in Ph
 
 
 class Vehicle(BaseModel):
-    make: str
-    model: str
-    year: int = Field(ge=1950, le=2100)
+    id: int | None = Field(default=None, ge=1)
+    name: str | None = Field(default=None, max_length=120)
+    kind: str | None = Field(default=None, max_length=30)  # e.g. "ev"
+    make: str | None = Field(default=None, max_length=60)
+    model: str | None = Field(default=None, max_length=60)
+    year: int | None = Field(default=None, ge=1950, le=2100)
     mileage_km: int | None = Field(default=None, ge=0)
+
+
+class Price(BaseModel):
+    name: str = Field(max_length=120)
+    cents: int = Field(ge=0, le=100_000_000)
 
 
 class NewRequest(BaseModel):
     text: str = Field(min_length=3, max_length=2000)
     vehicle: Vehicle
+    history: list[str] | None = Field(default=None, max_length=50)
+    prices: dict[str, Price] | None = Field(default=None, max_length=200)  # live prices from the web app's database
 
 
 class Clarification(BaseModel):
@@ -50,8 +60,10 @@ def _view(rid: str) -> dict:
     return {"request_id": rid, "status": v.get("status", "in_progress") if not awaiting else
             ("needs_clarification" if awaiting["type"] == "clarification" else "pending_technician"),
             "awaiting": awaiting,
+            "text": v.get("text"), "vehicle": v.get("vehicle"), "hits": v.get("hits"),
             "risk": v.get("risk"), "retrieval": v.get("retrieval"), "quote": v.get("quote"),
-            "recommendation": v.get("recommendation"), "technician_decision": v.get("technician_decision")}
+            "recommendation": v.get("recommendation"), "technician_decision": v.get("technician_decision"),
+            "trace": [{"step": i + 1, **t} for i, t in enumerate(v.get("trace", []))]}
 
 
 def _authorise(rid: str, user: dict) -> None:
@@ -70,7 +82,12 @@ def health() -> dict:
 def create_request(body: NewRequest, user: dict = Depends(current_user)) -> dict:
     rid = uuid.uuid4().hex[:12]
     OWNERS[rid] = user["sub"]
-    graph.invoke({"request_id": rid, "text": body.text.strip(), "vehicle": body.vehicle.model_dump()}, _cfg(rid))
+    state = {"request_id": rid, "text": body.text.strip(), "vehicle": body.vehicle.model_dump()}
+    if body.history is not None:
+        state["provided_history"] = body.history
+    if body.prices is not None:
+        state["prices"] = {k: v.model_dump() for k, v in body.prices.items()}
+    graph.invoke(state, _cfg(rid))
     return _view(rid)
 
 

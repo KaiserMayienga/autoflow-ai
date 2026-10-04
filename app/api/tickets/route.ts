@@ -3,6 +3,8 @@ import { q, audit } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { runPipeline } from "@/lib/pipeline";
 import { slotFor } from "@/lib/slots";
+import { AgentError, agentEnabled, agentStart } from "@/lib/agent";
+import { saveAgentTicket } from "@/lib/agent-ticket";
 
 const Body = z.object({ vehicleId: z.number().int().positive(), text: z.string().trim().min(5).max(500) });
 
@@ -30,6 +32,20 @@ export async function POST(req: Request) {
   const history = (await q<{ note: string }>("select note from service_history where vehicle_id = $1", [veh.id])).map((h) => h.note);
   const prices = Object.fromEntries((await q<{ sku: string; name: string; price_cents: number }>("select sku, name, price_cents from parts"))
     .map((p) => [p.sku, { name: p.name, cents: p.price_cents }]));
+
+  // AI agent service (FastAPI + LangGraph). If it is switched off or unreachable, fall back to the
+  // in-process pipeline below so customers are never blocked.
+  if (agentEnabled()) {
+    try {
+      const v = await agentStart(s, body.data.text, veh, history, prices);
+      if (v.status === "needs_clarification" && v.awaiting?.type === "clarification")
+        return Response.json({ needsClarification: true, requestId: v.request_id, questions: v.awaiting.questions });
+      return Response.json(await saveAgentTicket(s, v, veh));
+    } catch (e) {
+      if (!(e instanceof AgentError)) throw e;
+      await audit("system", "agent_unavailable", null, `fell back to built-in pipeline: ${e.message}`.slice(0, 200));
+    }
+  }
 
   const result = runPipeline({ text: body.data.text, vehicle: veh, history, prices });
   const status = result.escalate ? "Pending technician review" : "Booked";

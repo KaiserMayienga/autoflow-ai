@@ -1,26 +1,9 @@
-"""Deterministic rule layer: categories, risk, escalation.
+"""Deterministic risk and escalation. The model may never override these.
 
-The model may never override these. Matching uses word boundaries so a short
-keyword like "ac" can never match inside "back".
-"""
+Mirrors lib/pipeline.ts (risk, confidence, escalation reasons) and adds symptom handling,
+clarifying questions and human-readable reasons."""
 import re
 from dataclasses import dataclass
-
-SAFETY_CRITICAL = {"brakes", "steering", "airbag", "fuel", "smoke", "high_voltage"}
-
-CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "brakes": ["brake", "brakes", "braking", "rotor", "rotors", "pads", "pedal"],
-    "steering": ["steering", "wheel pulls", "pulls to"],
-    "airbag": ["airbag", "air bag", "srs"],
-    "fuel": ["fuel leak", "petrol smell", "fuel smell", "gas smell"],
-    "smoke": ["smoke", "burning smell", "overheating"],
-    "high_voltage": ["ev battery", "hybrid battery", "high voltage", "charging port", "ev charging"],
-    "battery": ["battery", "charging", "alternator", "drains"],
-    "ac": ["ac", "a/c", "air conditioning", "not cold"],
-    "service": ["oil change", "oil", "service", "filter"],
-    "upgrade_electrical": ["led", "headlights", "dashcam", "dash cam", "stereo"],
-    "noise_unknown": ["strange noise", "weird noise", "noise", "rattle"],
-}
 
 SYMPTOM_KEYWORDS = {
     "squeal": ["squeal", "squeak", "screech"],
@@ -30,65 +13,8 @@ SYMPTOM_KEYWORDS = {
     "warning_light": ["warning light", "dashboard light", "check engine"],
     "pull": ["pulls", "pull to"],
 }
-
 SEVERE_SYMPTOMS = {"grind", "soft_pedal", "warning_light", "pull"}
 SEVERE_ANSWERS = {"grinding", "soft", "yes"}
-
-
-def _has(text: str, kw: str) -> bool:
-    return re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", text) is not None
-
-
-def find_categories(text: str) -> list[str]:
-    t = text.lower()
-    return [c for c, kws in CATEGORY_KEYWORDS.items() if any(_has(t, k) for k in kws)]
-
-
-def find_symptoms(text: str) -> list[str]:
-    t = text.lower()
-    return [s for s, kws in SYMPTOM_KEYWORDS.items() if any(_has(t, k) for k in kws)]
-
-
-@dataclass
-class Risk:
-    level: str
-    confidence: int
-    escalate: bool
-    reasons: list[str]
-
-
-def assess_risk(categories: list[str], symptoms: list[str], answers: dict | None = None) -> Risk:
-    answers = answers or {}
-    reasons: list[str] = []
-    critical = [c for c in categories if c in SAFETY_CRITICAL]
-
-    if critical:
-        reasons.append(f"Rule: {', '.join(critical)} is safety-critical -> mandatory technician sign-off")
-        level, confidence = "high", 75
-    elif not categories:
-        return Risk("medium", 30, True, ["Rule: no recognised component -> low confidence -> technician review"])
-    elif categories == ["noise_unknown"]:
-        return Risk("medium", 40, True, ["Rule: unidentified noise -> low confidence -> technician review"])
-    elif "upgrade_electrical" in categories:
-        reasons.append("Rule: electrical upgrade -> routine; wiring scope verified at fitting")
-        level, confidence = "low", 85
-    else:
-        reasons.append("Routine maintenance category; no safety rule fired")
-        level, confidence = "low", 90
-
-    if symptoms:
-        confidence = min(95, confidence + 10)
-        reasons.append(f"Symptom detail captured: {', '.join(symptoms)}")
-    if answers:
-        confidence = min(95, confidence + 10)
-        reasons.append("Customer answered clarifying questions")
-    if SEVERE_SYMPTOMS & set(symptoms) or SEVERE_ANSWERS & set(answers.values()):
-        level = "high"
-        reasons.append("Severe symptom indicated -> advise not driving until inspected")
-
-    escalate = bool(critical) or confidence < 60
-    return Risk(level, confidence, escalate, reasons)
-
 
 CLARIFYING_QUESTIONS = {
     "brakes": [
@@ -99,9 +25,65 @@ CLARIFYING_QUESTIONS = {
 }
 
 
-def questions_for(categories: list[str], symptoms: list[str]) -> list[dict]:
-    """Ask only when a safety-critical category has no symptom detail beyond a squeal."""
-    for c in categories:
+def _has(text: str, kw: str) -> bool:
+    return re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", text) is not None
+
+
+def find_symptoms(text: str) -> list[str]:
+    t = text.lower()
+    return [s for s, kws in SYMPTOM_KEYWORDS.items() if any(_has(t, k) for k in kws)]
+
+
+def questions_for(hit_ids: list[str], symptoms: list[str]) -> list[dict]:
+    """Ask only when a safety-critical topic has no symptom detail beyond a squeal."""
+    for c in hit_ids:
         if c in CLARIFYING_QUESTIONS and not (set(symptoms) - {"squeal"}):
             return CLARIFYING_QUESTIONS[c]
     return []
+
+
+@dataclass
+class Risk:
+    level: str          # low | med | high
+    confidence: int     # percent
+    escalate: bool
+    reason: str         # same strings the web app already shows
+    reasons: list[str]  # explanation for the UI / audit trail
+    severe: bool
+
+
+def assess_risk(hits: list[dict], symptoms: list[str], answers: dict | None, vehicle_kind: str | None, norm_text: str) -> Risk:
+    answers = answers or {}
+    reasons: list[str] = []
+    level = "high" if any(h["risk"] == "high" for h in hits) else "med" if any(h["risk"] == "med" for h in hits) else "low"
+    confidence = min(95, 55 + 20 * len(hits)) if hits else 20
+    high_titles = [h["title"] for h in hits if h["risk"] == "high"]
+
+    if high_titles:
+        reasons.append(f"Rule: {', '.join(high_titles)} is safety-critical -> mandatory technician sign-off")
+    if not hits:
+        reasons.append("No recognised component in the knowledge base -> low confidence -> technician review")
+    ev_hv = vehicle_kind == "ev" and re.search(r"(battery|charg)", norm_text) is not None
+    if ev_hv:
+        reasons.append("Rule: battery or charging work on an EV involves the high-voltage system -> technician review")
+
+    if hits and symptoms:
+        confidence = min(95, confidence + 10)
+        reasons.append(f"Symptom detail captured: {', '.join(symptoms)}")
+    if hits and answers:
+        confidence = min(95, confidence + 10)
+        reasons.append("Customer answered clarifying questions")
+    severe = bool(SEVERE_SYMPTOMS & set(symptoms) or SEVERE_ANSWERS & set(answers.values()))
+    if severe:
+        reasons.append("Severe symptom indicated -> advise not driving until inspected")
+    if not reasons:
+        reasons.append("Routine maintenance; no safety rule fired")
+
+    reason = ""
+    if level == "high":
+        reason = "Safety-critical topic"
+    elif confidence < 60:
+        reason = "Low confidence match"
+    elif ev_hv:
+        reason = "High-voltage EV system"
+    return Risk(level, confidence, reason != "", reason, reasons, severe)

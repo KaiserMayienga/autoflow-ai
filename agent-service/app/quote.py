@@ -1,38 +1,44 @@
-"""Deterministic quote engine. Integer minor units only; the model never prices."""
+"""Deterministic quote engine, identical in behaviour to lib/quote.ts. Integer cents only.
+
+hours are passed as hours_x10 (15 == 1.5h) to avoid floats. The model never prices."""
 from . import config
-
-PARTS = {
-    "brake_pad_set": ("Brake pad set", 6200),
-    "rotor_pair": ("Rotor pair", 14000),
-    "oil_filter_kit": ("Oil and filter kit", 3500),
-    "led_headlight_kit": ("LED headlight kit", 9500),
-    "dashcam_kit": ("Dashcam and hardwire kit", 7500),
-}
+from .kb import BY_ID, DEFAULT_PRICES, KbEntry
 
 
-def _vat(subtotal: int) -> int:
-    return (subtotal * config.VAT_PERCENT + 50) // 100
+def build_quote(skus: list[str], hours_x10: int, prices: dict) -> dict:
+    parts = []
+    for sku in skus:
+        p = prices.get(sku)
+        if p:  # unknown SKUs are skipped, as in the TypeScript pipeline
+            parts.append({"sku": sku, "name": p["name"], "qty": 1, "unitCents": p["cents"], "totalCents": p["cents"]})
+    parts_cents = sum(p["totalCents"] for p in parts)
+    labour = (config.LABOUR_RATE_CENTS * hours_x10 + 5) // 10
+    subtotal = parts_cents + labour
+    vat = (subtotal * config.VAT_PERCENT + 50) // 100
+    return {"parts": parts, "partsCents": parts_cents, "hours": hours_x10 / 10, "labourCents": labour,
+            "subtotalCents": subtotal, "vatCents": vat, "totalCents": subtotal + vat}
 
 
-def build_quote(parts: list[str], labour_hours_x10: int, label: str) -> dict:
-    """labour_hours_x10 avoids floats: 15 == 1.5h."""
-    lines = [{"item": PARTS[p][0], "cents": PARTS[p][1]} for p in parts]
-    labour = (config.LABOUR_RATE_CENTS * labour_hours_x10) // 10
-    lines.append({"item": f"Labour {labour_hours_x10 / 10:g}h", "cents": labour})
-    subtotal = sum(line["cents"] for line in lines)
-    vat = _vat(subtotal)
-    return {"label": label, "lines": lines, "subtotal_cents": subtotal,
-            "vat_cents": vat, "total_cents": subtotal + vat, "currency": config.CURRENCY}
+DIAGNOSTIC_HOURS_X10 = 8  # no knowledge-base match: quote a diagnostic inspection, never $0
 
 
-def brake_inspection_quote() -> dict:
-    """Inspection-first: a range, because rotors depend on measured thickness."""
-    low = build_quote(["brake_pad_set"], 10, "Pads only")
-    high = build_quote(["brake_pad_set", "rotor_pair"], 15, "Pads and rotors")
-    return {"type": "range", "low": low, "high": high, "currency": config.CURRENCY,
-            "note": "Final scope confirmed by a technician after measuring rotor thickness."}
+def quote_for_hits(hit_ids: list[str], prices: dict | None) -> dict:
+    """Full-scope quote, plus a low/high range when a topic is priced inspection-first."""
+    prices = prices or DEFAULT_PRICES
+    hits: list[KbEntry] = [BY_ID[i] for i in hit_ids]
+    if not hits:
+        return build_quote([], DIAGNOSTIC_HOURS_X10, prices)
+    high_skus = [s for h in hits for s in h.skus]
+    high_h = sum(h.hours_x10 for h in hits)
+    quote = build_quote(high_skus, high_h, prices)
 
-
-def fixed_quote(label: str, parts: list[str], labour_hours_x10: int) -> dict:
-    return {"type": "fixed", "quote": build_quote(parts, labour_hours_x10, label),
-            "currency": config.CURRENCY}
+    scoped = [h for h in hits if h.low_scope]
+    if scoped:
+        low_skus = [s for h in hits for s in (h.low_scope[0] if h.low_scope else h.skus)]
+        low_h = sum((h.low_scope[1] if h.low_scope else h.hours_x10) for h in hits)
+        low = build_quote(low_skus, low_h, prices)
+        if low["totalCents"] != quote["totalCents"]:
+            quote["range"] = {"lowCents": low["totalCents"], "highCents": quote["totalCents"],
+                              "lowLabel": scoped[0].low_scope[2], "highLabel": scoped[0].low_scope[3],
+                              "note": "Final scope is confirmed by a technician after inspection."}
+    return quote
