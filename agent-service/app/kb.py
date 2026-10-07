@@ -27,9 +27,10 @@ KB: tuple[KbEntry, ...] = (
     KbEntry("ac", "AC recharge and leak test", ("ac", "air conditioning", "not cold", "cooling"), "low", 12, ("AC-REF",), "HVAC Guide 3.3"),
     KbEntry("led", "LED headlight upgrade", ("led", "headlight", "headlights", "lights"), "low", 10, ("LED-KIT",), "Upgrade Guide: Lighting"),
     KbEntry("dashcam", "Dashcam installation", ("dashcam", "dash cam", "camera"), "low", 10, ("DASHCAM",), "Upgrade Guide: Electronics"),
-    KbEntry("alignment", "Wheel alignment and tyre rotation", ("alignment", "tyre", "tyres", "tire", "tires", "vibration", "pulling"), "low", 10, ("ALIGN-SHIM",), "Chassis Manual 5.4"),
+    KbEntry("alignment", "Wheel alignment and tyre rotation", ("alignment", "tyre", "tyres", "tire", "tires", "vibration", "vibrates", "pulling"), "low", 10, ("ALIGN-SHIM",), "Chassis Manual 5.4"),
     KbEntry("obd", "OBD-II diagnostic scan", ("check engine", "engine light", "warning light", "diagnostic", "obd"), "med", 8, (), "Diagnostics Guide 6.1"),
-    KbEntry("urgent", "Urgent safety inspection", ("smoke", "overheat", "overheating", "fuel leak", "burning", "steering", "airbag"), "high", 15, (), "Safety Procedures 0.1"),
+    KbEntry("urgent", "Urgent safety inspection", ("smoke", "overheat", "overheating", "fuel leak", "burning", "steering", "airbag",
+                                  "wheel nuts", "wheel nut", "loose wheel", "tyre bulge", "tire bulge", "bulge", "sidewall", "blowout", "abs", "petrol smell", "fuel smell", "smell petrol", "smell fuel", "smell of petrol", "smell of fuel", "gas smell", "coolant leak", "steam"), "high", 15, (), "Safety Procedures 0.1"),
 )
 BY_ID = {e.id: e for e in KB}
 

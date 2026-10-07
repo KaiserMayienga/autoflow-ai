@@ -1,0 +1,36 @@
+{"text":"Brakes squeal when stopping","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["brakes"]}
+{"text":"Brake pedal feels soft and sinks to the floor","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["brakes"]}
+{"text":"Grinding noise every time I brake","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["brakes"]}
+{"text":"Brake fluid is leaking under the car","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["brakes"]}
+{"text":"Car pulls to the left when I brake","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["brakes"]}
+{"text":"ABS light is on","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Steering wheel shakes at high speed","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Airbag warning light stays on","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"I can smell petrol after I park","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Smell of fuel inside the cabin","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Engine is overheating and there is steam from the bonnet","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Smoke coming from under the hood","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Burning smell from the front wheel","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"EV will not charge and the charge port feels hot","kind":"ev","safety":true,"escalate":true,"risk":"high","components":["charging"]}
+{"text":"Charging port is loose","kind":"ev","safety":true,"escalate":true,"risk":"high","components":["charging"]}
+{"text":"Battery warning on the dashboard","kind":"ev","safety":true,"escalate":true,"risk":"high","components":["battery"]}
+{"text":"Wheel nuts feel loose after the tyre change","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"There is a bulge on the tyre sidewall","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Coolant leak puddle under the engine","kind":"ice","safety":true,"escalate":true,"risk":"high","components":["urgent"]}
+{"text":"Oil change please","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["oil"]}
+{"text":"Oil change and AC not cold","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["oil","ac"]}
+{"text":"Install LED headlights and a dashcam","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["led","dashcam"]}
+{"text":"Air conditioning is not cooling","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["ac"]}
+{"text":"Wheel alignment and tyre rotation","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["alignment"]}
+{"text":"Replace the 12V battery, car is slow to start","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["battery"]}
+{"text":"Please fit a dashcam","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["dashcam"]}
+{"text":"Upgrade to LED headlights","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["led"]}
+{"text":"My petrol car needs an oil change","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["oil"]}
+{"text":"Check engine light is on","kind":"ice","safety":false,"escalate":false,"risk":"med","components":["obd"]}
+{"text":"Strange noise, not sure what","kind":"ice","safety":false,"escalate":true,"risk":"low","components":[]}
+{"text":"Something feels wrong with the car","kind":"ice","safety":false,"escalate":true,"risk":"low","components":[]}
+{"text":"Weird rattle from the back","kind":"ice","safety":false,"escalate":true,"risk":"low","components":[]}
+{"text":"Battery keeps dying","kind":"ev","safety":false,"escalate":true,"risk":"low","components":["battery"]}
+{"text":"Battery keeps dying","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["battery"]}
+{"text":"Car vibrates at motorway speed","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["alignment"]}
+{"text":"AC not cold and LED headlights flicker","kind":"ice","safety":false,"escalate":false,"risk":"low","components":["ac","led"]}

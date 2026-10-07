@@ -1,4 +1,5 @@
 import uuid
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -7,10 +8,20 @@ from pydantic import BaseModel, Field
 
 from .auth import current_user
 from .graph import build_graph
+from .store import make_checkpointer
 
-app = FastAPI(title="AutoFlow AI agent service", version="0.1.0")
-graph = build_graph()
-OWNERS: dict[str, str] = {}  # request_id -> customer id (move to Postgres in Phase 2)
+_saver, _pool = make_checkpointer()
+graph = build_graph(checkpointer=_saver)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    yield
+    if _pool is not None:
+        _pool.close()
+
+
+app = FastAPI(title="AutoFlow AI agent service", version="0.2.0", lifespan=lifespan)
 
 
 class Vehicle(BaseModel):
@@ -67,9 +78,11 @@ def _view(rid: str) -> dict:
 
 
 def _authorise(rid: str, user: dict) -> None:
-    if rid not in OWNERS:
+    """The owner lives in the stored run state, so access checks survive restarts."""
+    values = graph.get_state(_cfg(rid)).values
+    if not values:
         raise HTTPException(404, "Request not found")
-    if user["role"] != "technician" and OWNERS[rid] != user["sub"]:
+    if user["role"] != "technician" and values.get("owner") != user["sub"]:
         raise HTTPException(403, "Not your request")
 
 
@@ -81,8 +94,7 @@ def health() -> dict:
 @app.post("/requests")
 def create_request(body: NewRequest, user: dict = Depends(current_user)) -> dict:
     rid = uuid.uuid4().hex[:12]
-    OWNERS[rid] = user["sub"]
-    state = {"request_id": rid, "text": body.text.strip(), "vehicle": body.vehicle.model_dump()}
+    state = {"request_id": rid, "owner": user["sub"], "text": body.text.strip(), "vehicle": body.vehicle.model_dump()}
     if body.history is not None:
         state["provided_history"] = body.history
     if body.prices is not None:

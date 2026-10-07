@@ -9,7 +9,7 @@ export const KB: KbEntry[] = [
   { id: "ac", title: "AC recharge and leak test", keywords: ["ac", "air conditioning", "not cold", "cooling"], risk: "low", hours: 1.2, skus: ["AC-REF"], doc: "HVAC Guide 3.3" },
   { id: "led", title: "LED headlight upgrade", keywords: ["led", "headlight", "headlights", "lights"], risk: "low", hours: 1, skus: ["LED-KIT"], doc: "Upgrade Guide: Lighting" },
   { id: "dashcam", title: "Dashcam installation", keywords: ["dashcam", "dash cam", "camera"], risk: "low", hours: 1, skus: ["DASHCAM"], doc: "Upgrade Guide: Electronics" },
-  { id: "alignment", title: "Wheel alignment and tyre rotation", keywords: ["alignment", "tyre", "tyres", "tire", "tires", "vibration", "pulling"], risk: "low", hours: 1, skus: ["ALIGN-SHIM"], doc: "Chassis Manual 5.4" },
+  { id: "alignment", title: "Wheel alignment and tyre rotation", keywords: ["alignment", "tyre", "tyres", "tire", "tires", "vibration", "vibrates", "pulling"], risk: "low", hours: 1, skus: ["ALIGN-SHIM"], doc: "Chassis Manual 5.4" },
   { id: "obd", title: "OBD-II diagnostic scan", keywords: ["check engine", "engine light", "warning light", "diagnostic", "obd"], risk: "med", hours: 0.8, skus: [], doc: "Diagnostics Guide 6.1" },
-  { id: "urgent", title: "Urgent safety inspection", keywords: ["smoke", "overheat", "overheating", "fuel leak", "burning", "steering", "airbag"], risk: "high", hours: 1.5, skus: [], doc: "Safety Procedures 0.1" },
+  { id: "urgent", title: "Urgent safety inspection", keywords: ["smoke", "overheat", "overheating", "fuel leak", "burning", "steering", "airbag", "wheel nuts", "wheel nut", "loose wheel", "tyre bulge", "tire bulge", "bulge", "sidewall", "blowout", "abs", "petrol smell", "fuel smell", "smell petrol", "smell fuel", "smell of petrol", "smell of fuel", "gas smell", "coolant leak", "steam"], risk: "high", hours: 1.5, skus: [], doc: "Safety Procedures 0.1" },
 ];

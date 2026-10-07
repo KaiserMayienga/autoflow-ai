@@ -1,0 +1,24 @@
+# Render Blueprint for the agent service. Create it with: Dashboard > New > Blueprint.
+# The two secrets are entered in the dashboard, never stored in this file.
+services:
+  - type: web
+    name: autoflow-agent
+    runtime: docker
+    dockerfilePath: ./agent-service/Dockerfile
+    dockerContext: ./agent-service
+    plan: free            # sleeps after ~15 min idle (about a minute to wake); use "starter" to keep it awake
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: AUTH_DISABLED
+        value: "0"
+      - key: AGENT_SERVICE_SECRET   # same value as AGENT_SERVICE_SECRET in the Next.js app
+        sync: false
+      - key: DATABASE_URL           # your Neon connection string (stores paused runs)
+        sync: false
+      - key: CURRENCY
+        value: USD
+      - key: VAT_PERCENT
+        value: "16"
+      - key: LABOUR_RATE_CENTS
+        value: "3000"

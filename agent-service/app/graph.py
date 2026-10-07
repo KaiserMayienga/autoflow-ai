@@ -19,6 +19,7 @@ from .repo import InMemoryRepo, VehicleRepo
 
 class AgentState(TypedDict, total=False):
     request_id: str
+    owner: str
     text: str
     norm_text: str
     vehicle: dict

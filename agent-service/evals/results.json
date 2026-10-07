@@ -1,0 +1,12 @@
+{
+  "cases": 36,
+  "safety_cases": 19,
+  "escalation_recall_safety": 1.0,
+  "over_escalation_rate": 0.0,
+  "escalation_accuracy": 1.0,
+  "triage_accuracy": 0.9722,
+  "component_precision": 0.9231,
+  "component_recall": 1.0,
+  "missed_safety_cases": [],
+  "over_escalated": []
+}
