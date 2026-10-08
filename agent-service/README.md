@@ -5,7 +5,7 @@ human-in-the-loop pauses: customer clarification and technician review.
 
 ## Run
     python -m venv .venv && source .venv/bin/activate
-    pip install -r requirements.txt
+    pip install -r requirements-dev.txt
     cp .env.example .env          # AUTH_DISABLED=1 for local dev
     uvicorn app.main:app --reload
     pytest -q

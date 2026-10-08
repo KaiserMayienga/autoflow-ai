@@ -64,6 +64,6 @@ create table if not exists audit_logs (
   event text not null,
   ticket_id int,
   detail text not null default ''
-)
+);
 
 alter table tickets add column if not exists agent_request_id text;
